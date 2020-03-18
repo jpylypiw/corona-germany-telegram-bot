@@ -4,6 +4,7 @@ TODO: Doku
 from datetime import datetime
 from html.parser import HTMLParser
 from json import loads
+from logging import error, info
 from threading import Thread
 from time import sleep
 
@@ -12,6 +13,7 @@ import requests
 from corona_germany_telegram_bot.bot import Bot
 from corona_germany_telegram_bot.config import Config
 from corona_germany_telegram_bot.users import Users
+from corona_germany_telegram_bot.utility import format_exception
 
 
 class News(object):
@@ -19,10 +21,10 @@ class News(object):
     TODO: Doku
     """
 
-    def __init__(self, configpath, newspath, userspath, dispatcher):
-        self.newsconfig = Config(newspath)
-        self.users = Users(userspath)
-        self.bot = Bot(configpath, userspath)
+    def __init__(self, config: Config, newsconfig: Config, userconfig: Config, dispatcher) -> None:
+        self.newsconfig = newsconfig
+        self.users = Users(userconfig)
+        self.bot = Bot(config, userconfig)
         self.stopflag = False
         self.dispatcher = dispatcher
 
@@ -42,58 +44,62 @@ class News(object):
             "Sec-Fetch-Site": "none",
             "Sec-Fetch-Mode": "navigate",
             "Sec-Fetch-User": "?1",
-            "Accept-Encoding": "gzip, deflate, br",
             "Accept-Language": "de-DE,de;q=0.9,en-GB;q=0.8,en;q=0.7"
         }
-        return loads(requests.get(url, headers=headers).text)
+        text = requests.get(url, headers=headers).text
+        return loads(text)
 
     def check_for_news(self):
         """
         TODO: Doku
         """
-        news = self.get_json_content()["countrynewsitems"]
-        last_news_id = self.newsconfig.get_value("NEWS", "last_id")
+        info("checking for news")
+        news = self.get_json_content()["countrynewsitems"][0]
+        last_news_id = self.newsconfig.get_value("NEWS", "last_news_id")
         if last_news_id == "":
-            last_news_id = news[len(news) - 2]["newsid"]
-            self.newsconfig.set_value("NEWS", "last_id", last_news_id)
-        if news[len(news) - 2]["newsid"] != last_news_id:
+            last_news_id = list(news.keys())[-2]
+            self.newsconfig.set_value("NEWS", "last_news_id", last_news_id)
+        if list(news.keys())[-2] != last_news_id:
             self.send_news(news, last_news_id)
-            self.newsconfig.set_value("NEWS", "last_id", news[len(news) - 2]["newsid"])
+            self.newsconfig.set_value("NEWS", "last_news_id", list(news.keys())[-2])
 
-    def send_news(self, newsdict, last_news_id):
+    def send_news(self, newsdict: dict, last_news_id: int) -> None:
         """
         TODO: Doku
         """
-        for news in newsdict:
-            if news["newsid"] == last_news_id:
-                break
-            else:
-                for chat_id in self.users.get_user_list():
-                    title = news["title"]
-                    published = datetime.strptime(news["time"], "%-d %B %Y %H:%M")
-                    published = "{0:%d.%m.%Y %H:%M}".format(published)
-                    url_article = "[To Article](" + news["url"] + ")"
-                    url_image = "[To Image](" + news["image"] + ")"
-                    text = "*" + title + "*\n" + published + "\n\n" + url_image + " - " + url_article
-                    self.bot.send_message(
-                        chat_id, text, self.dispatcher.bot.send_message, "Markdown", False)
+        for key in newsdict:
+            if key != "stat":
+                if int(key) > last_news_id:
+                    info("sending news for id {}".format(key))
+                    for chat_id in self.users.get_user_list():
+                        news = newsdict[key]
+                        title = news["title"]
+                        published = datetime.strptime(news["time"], "%d %B %Y %H:%M")
+                        published = "{0:%d.%m.%Y %H:%M}".format(published)
+                        url_article = "[To Article](" + news["url"] + ")"
+                        url_image = "[To Image](" + news["image"] + ")"
+                        text = "*" + title + "*\n" + published + "\n\n" + url_image + " - " + url_article
+                        self.bot.send_message(
+                            chat_id, text, self.dispatcher.bot.send_message, "Markdown", False)
 
     def send_stats(self) -> None:
         """
         TODO: Doku
         """
+        info("sending statistics")
         for chat_id in self.users.get_user_list():
-            data = self.get_json_content()["countrydata"]
+            data = self.get_json_content()["countrydata"][0]
             text = """
-Statistics for Germany:
-Total cases: {}
-Total recovered: {}
-Total unresolved: {}
-Total Deaths: {}
-Total new cases today: {}
-Total new deaths today: {}
-Total active cases: {}
-Total serious cases: {}
+*Statistics for Germany*
+Total cases: *{}*
+Total recovered: *{}*
+Total unresolved: *{}*
+Total Deaths: *{}*
+Total new cases today: *{}*
+Total new deaths today: *{}*
+Total active cases: *{}*
+Total serious cases: *{}*
+[To Statistics Website](https://thevirustracker.com/germany-coronavirus-information-de)
 """
             text = text.format(
                 data["total_cases"],
@@ -107,16 +113,22 @@ Total serious cases: {}
             )
 
             self.bot.send_message(
-                chat_id, text, self.dispatcher.bot.send_message, "Markdown", False)
+                chat_id, text, self.dispatcher.bot.send_message, "Markdown", True)
 
     def start_thread(self):
         """
         TODO: Doku
         """
-        thread = Thread(target=self.run_thread, args=("news"))
-        thread.start()
-        thread = Thread(target=self.run_thread, args=("stats"))
-        thread.start()
+        try:
+            info("starting news thread")
+            thread = Thread(target=self.run_thread, args=(), kwargs={"thread_type": "news"})
+            thread.start()
+
+            info("starting stats thread")
+            thread = Thread(target=self.run_thread, args=(), kwargs={"thread_type": "stats"})
+            thread.start()
+        except Exception as exc:
+            error("Got error when creating threads: {}".format(format_exception(exc)))
 
     def run_thread(self, thread_type: str) -> None:
         """

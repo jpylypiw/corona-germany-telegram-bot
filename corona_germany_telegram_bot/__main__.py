@@ -14,11 +14,14 @@ def run_bot():
     """
     run_bot is the main function of the program
     """
-    configpath = get_abs_path_of_filepath(__file__) + "../config/config.ini"
-    userspath = get_abs_path_of_filepath(__file__) + "../config/users.ini"
-    newspath = get_abs_path_of_filepath(__file__) + "../config/news.ini"
+    configpath = get_abs_path_of_filepath(__file__) + "/../config/config.ini"
+    userspath = get_abs_path_of_filepath(__file__) + "/../config/users.ini"
+    newspath = get_abs_path_of_filepath(__file__) + "/../config/news.ini"
 
     config = Config(configpath)
+    usersconfig = Config(userspath)
+    newsconfig = Config(newspath)
+
     loglevel = config.get_value("LOG", "level")
     to_stdout = config.get_value("LOG", "to_stdout")
     to_files = config.get_value("LOG", "to_files")
@@ -28,10 +31,10 @@ def run_bot():
 
     info("starting telegram bot")
 
-    bot = Bot(configpath, userspath)
+    bot = Bot(config, usersconfig)
     try:
         dispatcher = bot.init_updater()
-        news = News(configpath, newspath, userspath, dispatcher)
+        news = News(config, newsconfig, usersconfig, dispatcher)
         bot.init_handler()
         bot.start_bot()
         info("telegram bot started")

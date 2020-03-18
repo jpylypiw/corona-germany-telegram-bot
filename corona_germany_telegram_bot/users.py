@@ -9,8 +9,8 @@ class Users(object):
     TODO: Doku
     """
 
-    def __init__(self, userspath):
-        self.usersconfig = Config(userspath)
+    def __init__(self, cfg: Config):
+        self.usersconfig = cfg
 
     def add_user(self, chat_id):
         """
