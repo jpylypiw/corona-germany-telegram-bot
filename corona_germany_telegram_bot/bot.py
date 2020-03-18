@@ -79,7 +79,7 @@ The bot sends two types of data:
 - **news** about corona in germany
 
 The telegram bot is a private project to inform the developer of the bot himself.
-There is not warranty that the information sent here is correct! 
+There is not warranty that the information sent here is correct!
 You can view the source-code of the Bot on GitHub: https://github.com/jpylypiw/corona-germany-telegram-bot
 
 **Commands** the bot can answer:
