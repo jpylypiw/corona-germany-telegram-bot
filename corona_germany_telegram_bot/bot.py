@@ -84,7 +84,7 @@ There is not warranty that the information sent here is correct!
 You can view the source-code of the Bot on GitHub: https://github.com/jpylypiw/corona-germany-telegram-bot
 
 *Commands* the bot can answer:
-/subscribe - start subsctiption of news and statistics
+/subscribe - start subscription of news and statistics
 /unsubscribe - stop the subscription to news and statistics
 
 If you don't want to use the bot anymore you can simply delete the chat.
